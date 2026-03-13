@@ -10,6 +10,7 @@
     "pack": "electron-builder --dir"
   },
   "keywords": ["xbox", "emulation", "xemu", "dashboard"],
+  "homepage": "https://github.com/bomkz/xemubox-dashboard",
   "author": "Autumn Ookami <fluffzookami@outlook.com> (https://github.com/bomkz)",
   "license": "MIT",
   "devDependencies": {
