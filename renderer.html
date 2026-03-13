@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xbox Game Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ── Reset ────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+
+/* ── Theme Variables ─────────────────────────────────────────────────────── */
+:root {
+  --bg:               #000000;
+  --bg2:              #0a0a0a;
+  --panel-bg:         #0d1a0d;
+  --panel-border:     #1a3a1a;
+  --panel-glow:       #52B043;
+  --accent:           #52B043;
+  --accent-bright:    #76D65A;
+  --accent-dim:       #2d6624;
+  --accent-glow:      rgba(82,176,67,0.4);
+  --text-primary:     #FFFFFF;
+  --text-secondary:   #8DC63F;
+  --text-muted:       #4a7a40;
+  --text-on-accent:   #000000;
+  --sel-bg:           rgba(82,176,67,0.2);
+  --sel-border:       #52B043;
+  --ring-outer:       rgba(82,176,67,0.08);
+  --ring-middle:      rgba(82,176,67,0.12);
+  --ring-inner:       rgba(82,176,67,0.06);
+  --btn-a:            #52B043;
+  --btn-b:            #CC2222;
+  --btn-x:            #1155AA;
+  --btn-y:            #BB8800;
+  --no-art:           #0d1a0d;
+  --no-art-text:      #2d6624;
+  --font-display:     'Orbitron', sans-serif;
+  --font-body:        'Exo 2', sans-serif;
+  --font-mono:        'Share Tech Mono', monospace;
+  --glow:             1.0;
+  --vignette:         0.6;
+  --scrollbar:        #52B043;
+  --scrollbar-track:  #0d1a0d;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
+
+/* ── Body ─────────────────────────────────────────────────────────────────── */
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  user-select: none;
+  cursor: default;
+}
+
+/* ── Background / overlays ───────────────────────────────────────────────── */
+#bg-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.scanlines {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,0.12) 3px, rgba(0,0,0,0.12) 4px);
+}
+.vignette {
+  position: fixed; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,calc(var(--vignette) * 1)) 100%);
+}
+
+/* ── App shell ───────────────────────────────────────────────────────────── */
+#app { position: relative; z-index: 3; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+#header {
+  display: flex; align-items: center; padding: 14px 28px 10px;
+  border-bottom: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 100%);
+  backdrop-filter: blur(4px); gap: 16px; flex-shrink: 0;
+}
+.xbox-logo { width: 44px; height: 44px; flex-shrink: 0; }
+.header-title-group { flex: 1; }
+.header-title {
+  font-family: var(--font-display); font-size: 22px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-primary);
+  text-shadow: 0 0 calc(18px * var(--glow)) var(--accent-glow); line-height: 1;
+}
+.header-subtitle { font-size: 12px; color: var(--text-muted); letter-spacing: 0.08em; margin-top: 3px; }
+.header-actions { display: flex; align-items: center; gap: 12px; }
+#game-count { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); letter-spacing: 0.06em; white-space: nowrap; }
+
+/* Search */
+#search-wrap { position: relative; }
+#search-input {
+  background: var(--panel-bg); border: 1px solid var(--panel-border);
+  color: var(--text-primary); font-family: var(--font-body); font-size: 13px;
+  padding: 6px 12px 6px 34px; border-radius: 3px; width: 200px; outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s; letter-spacing: 0.04em;
+}
+#search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--sel-bg); }
+#search-input::placeholder { color: var(--text-muted); }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 14px; }
+/* Gamepad hover ring on search */
+#search-wrap.gp-hover #search-input {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--sel-bg), 0 0 calc(8px * var(--glow)) var(--accent-glow);
+}
+
+/* Settings button */
+#settings-btn {
+  background: var(--panel-bg); border: 1px solid var(--panel-border);
+  color: var(--text-secondary); font-family: var(--font-body); font-size: 12px;
+  padding: 6px 14px; border-radius: 3px; cursor: pointer; outline: none;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+  display: flex; align-items: center; gap: 7px;
+}
+#settings-btn:hover, #settings-btn.gp-hover {
+  border-color: var(--accent); color: var(--text-primary);
+  box-shadow: 0 0 calc(8px * var(--glow)) var(--accent-glow);
+}
+
+/* ── Content ──────────────────────────────────────────────────────────────── */
+#content { display: flex; flex: 1; min-height: 0; }
+
+/* ── Grid Panel ──────────────────────────────────────────────────────────── */
+#grid-panel { flex: 1; min-width: 0; padding: 20px 20px 0 28px; overflow-y: auto; overflow-x: hidden; }
+#game-grid { display: grid; gap: 14px; padding-bottom: 20px; }
+
+/* ── Game Card ───────────────────────────────────────────────────────────── */
+.game-card {
+  position: relative; background: var(--panel-bg); border: 1px solid var(--panel-border);
+  border-radius: 4px; cursor: pointer; overflow: hidden;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  aspect-ratio: 3/4; display: flex; flex-direction: column;
+}
+.game-card:hover, .game-card.focused {
+  border-color: var(--sel-border); transform: scale(1.04) translateY(-3px);
+  box-shadow: 0 0 calc(12px * var(--glow)) var(--accent-glow), 0 8px 24px rgba(0,0,0,0.7);
+  z-index: 10;
+}
+.game-card.focused {
+  box-shadow: 0 0 calc(20px * var(--glow)) var(--accent-glow), 0 0 calc(40px * var(--glow)) rgba(82,176,67,0.15), 0 10px 30px rgba(0,0,0,0.8);
+}
+.card-art { flex: 1; overflow: hidden; position: relative; }
+.card-art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s; }
+.game-card:hover .card-art img, .game-card.focused .card-art img { transform: scale(1.05); }
+.no-art-placeholder { width: 100%; height: 100%; background: var(--no-art); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.no-art-x { font-family: var(--font-display); font-size: 52px; font-weight: 900; color: var(--no-art-text); line-height: 1; text-shadow: 0 0 20px var(--accent-glow); }
+.no-art-label { font-family: var(--font-mono); font-size: 9px; color: var(--no-art-text); letter-spacing: 0.1em; text-transform: uppercase; text-align: center; padding: 0 8px; }
+.card-art::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 60%; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%); pointer-events: none; }
+.card-info { padding: 8px 10px 9px; background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.9) 100%); border-top: 1px solid var(--panel-border); flex-shrink: 0; }
+.card-title { font-family: var(--font-display); font-size: 10px; font-weight: 600; color: var(--text-primary); letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-meta { font-size: 10px; color: var(--text-muted); margin-top: 3px; display: flex; gap: 8px; align-items: center; }
+.card-year { color: var(--text-secondary); }
+.card-selected-ring { position: absolute; inset: 0; border: 2px solid var(--accent); border-radius: 4px; pointer-events: none; opacity: 0; transition: opacity 0.15s; }
+.game-card.focused .card-selected-ring { opacity: 1; }
+
+/* ── Detail Panel ────────────────────────────────────────────────────────── */
+#detail-panel {
+  width: 320px; min-width: 280px; flex-shrink: 0;
+  border-left: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.95) 100%);
+  display: flex; flex-direction: column; overflow: hidden; backdrop-filter: blur(8px);
+}
+.detail-art-wrap { width: 100%; aspect-ratio: 3/4; max-height: 340px; overflow: hidden; position: relative; flex-shrink: 0; }
+.detail-art-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.detail-art-wrap::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 50%; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); pointer-events: none; }
+.detail-no-art { width: 100%; height: 100%; background: var(--no-art); display: flex; align-items: center; justify-content: center; }
+.detail-no-art-x { font-family: var(--font-display); font-size: 100px; font-weight: 900; color: var(--no-art-text); text-shadow: 0 0 40px var(--accent-glow); animation: pulse-x 3s ease-in-out infinite; }
+@keyframes pulse-x { 0%,100%{opacity:0.4;text-shadow:0 0 40px var(--accent-glow);} 50%{opacity:0.8;text-shadow:0 0 80px var(--accent-glow),0 0 120px var(--accent-glow);} }
+.detail-info { flex: 1; padding: 18px 20px; overflow-y: auto; }
+.detail-title { font-family: var(--font-display); font-size: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-primary); line-height: 1.3; text-shadow: 0 0 calc(10px * var(--glow)) var(--accent-glow); margin-bottom: 10px; }
+.detail-divider { height: 1px; background: linear-gradient(90deg, var(--accent-dim), transparent); margin-bottom: 12px; }
+.detail-meta-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.detail-meta-label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.detail-meta-value { font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); text-align: right; }
+.detail-description { margin-top: 14px; font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.6); }
+.detail-filename { margin-top: 14px; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); word-break: break-all; padding: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--panel-border); border-radius: 3px; }
+.detail-select-btn {
+  margin: 16px 20px 20px; flex-shrink: 0;
+  background: var(--accent); color: var(--text-on-accent); border: none;
+  font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 12px 20px; border-radius: 3px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  box-shadow: 0 0 calc(12px * var(--glow)) var(--accent-glow);
+}
+.detail-select-btn:hover { background: var(--accent-bright); box-shadow: 0 0 calc(20px * var(--glow)) var(--accent-glow); transform: translateY(-1px); }
+.detail-select-btn:active { transform: translateY(0); }
+.btn-a-badge { width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 11px; font-weight: 900; }
+.detail-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 30px; text-align: center; }
+.detail-empty-x { font-family: var(--font-display); font-size: 80px; font-weight: 900; color: var(--accent-dim); animation: pulse-x 3s ease-in-out infinite; }
+.detail-empty-text { font-size: 13px; color: var(--text-muted); letter-spacing: 0.06em; }
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+#footer {
+  display: flex; align-items: center; padding: 10px 28px;
+  border-top: 1px solid var(--panel-border); background: rgba(0,0,0,0.85);
+  gap: 20px; flex-shrink: 0; min-height: 44px;
+}
+.hint-group { display: flex; gap: 20px; align-items: center; }
+/* Default: show keyboard hints, hide gamepad */
+.hint-group.gp { display: none; }
+/* When gamepad mode active: flip them */
+body.input-gamepad .hint-group.kb { display: none; }
+body.input-gamepad .hint-group.gp { display: flex; }
+
+.footer-hint { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-muted); letter-spacing: 0.04em; }
+.btn-badge { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; font-family: var(--font-display); flex-shrink: 0; }
+.btn-a-hint { background: var(--btn-a); color: var(--text-on-accent); }
+.btn-b-hint { background: var(--btn-b); color: #fff; }
+.btn-x-hint { background: var(--btn-x); color: #fff; }
+.btn-y-hint { background: var(--btn-y); color: #fff; }
+.key-badge { padding: 2px 7px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 3px; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+.footer-spacer { flex: 1; }
+
+/* Controller connected dot */
+#ctrl-indicator { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); opacity: 0; transition: opacity 0.4s; }
+#ctrl-indicator.visible { opacity: 1; }
+.ctrl-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); animation: ctrl-pulse 2s ease-in-out infinite; }
+@keyframes ctrl-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ── Error / Empty / Loading States ──────────────────────────────────────── */
+#error-state, #empty-state { display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; height: 100%; text-align: center; padding: 40px; }
+#error-state.visible, #empty-state.visible { display: flex; }
+.state-icon { font-family: var(--font-display); font-size: 60px; font-weight: 900; color: var(--accent-dim); }
+.state-title { font-family: var(--font-display); font-size: 18px; letter-spacing: 0.1em; color: var(--text-secondary); text-transform: uppercase; }
+.state-msg { font-size: 13px; color: var(--text-muted); max-width: 400px; line-height: 1.6; }
+.state-path { font-family: var(--font-mono); font-size: 12px; color: var(--accent-dim); padding: 6px 14px; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 3px; }
+#loading { display: flex; align-items: center; justify-content: center; height: 100%; gap: 12px; font-family: var(--font-body); color: var(--text-muted); letter-spacing: 0.08em; font-size: 13px; }
+.spin { width: 20px; height: 20px; border: 2px solid var(--panel-border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Settings Modal ──────────────────────────────────────────────────────── */
+#settings-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.18s;
+}
+#settings-overlay.open { opacity: 1; pointer-events: all; }
+#settings-panel {
+  background: var(--panel-bg); border: 1px solid var(--panel-border);
+  border-radius: 6px; width: 420px; overflow: hidden;
+  box-shadow: 0 0 calc(30px * var(--glow)) var(--accent-glow), 0 20px 60px rgba(0,0,0,0.9);
+  transform: scale(0.94) translateY(10px); transition: transform 0.18s;
+}
+#settings-overlay.open #settings-panel { transform: scale(1) translateY(0); }
+.settings-header { padding: 18px 22px 14px; border-bottom: 1px solid var(--panel-border); display: flex; align-items: center; gap: 12px; }
+.settings-header-icon { font-size: 18px; color: var(--accent); }
+.settings-header-title { font-family: var(--font-display); font-size: 14px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-primary); flex: 1; }
+.settings-close-hint { font-family: var(--font-body); font-size: 11px; color: var(--text-muted); }
+.settings-body { padding: 20px 22px 24px; display: flex; flex-direction: column; gap: 20px; }
+.settings-row { display: flex; flex-direction: column; gap: 8px; }
+.settings-label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+.settings-select {
+  background: rgba(0,0,0,0.5); border: 1px solid var(--panel-border);
+  color: var(--text-primary); font-family: var(--font-body); font-size: 13px;
+  padding: 10px 14px; border-radius: 3px; outline: none; cursor: pointer;
+  transition: border-color 0.2s; width: 100%; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a7a40'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center;
+}
+.settings-select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--sel-bg); }
+.settings-select option { background: #0a0a0a; }
+.settings-theme-preview { display: flex; gap: 8px; margin-top: 4px; }
+.theme-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.15); }
+
+/* ── Virtual Keyboard ────────────────────────────────────────────────────── */
+#vkb-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0,0,0,0.78); backdrop-filter: blur(8px);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  padding-bottom: 44px;
+  opacity: 0; pointer-events: none; transition: opacity 0.18s;
+}
+#vkb-overlay.open { opacity: 1; pointer-events: all; }
+#vkb-search-display {
+  width: 560px; margin-bottom: 16px;
+  background: rgba(0,0,0,0.85); border: 1px solid var(--accent);
+  border-radius: 4px; padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 0 calc(16px * var(--glow)) var(--accent-glow);
+}
+.vkb-label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+#vkb-text { flex: 1; font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--text-primary); letter-spacing: 0.06em; min-height: 26px; }
+.vkb-cursor { width: 2px; height: 22px; background: var(--accent); flex-shrink: 0; animation: cursor-blink 1s step-end infinite; }
+@keyframes cursor-blink { 0%,100%{opacity:1} 50%{opacity:0} }
+#vkb-panel {
+  background: rgba(8,16,8,0.97); border: 1px solid var(--panel-border);
+  border-radius: 6px; padding: 16px 18px 14px; width: 560px;
+  box-shadow: 0 0 calc(20px * var(--glow)) var(--accent-glow), 0 20px 60px rgba(0,0,0,0.9);
+}
+.vkb-rows { display: flex; flex-direction: column; gap: 7px; }
+.vkb-row { display: flex; gap: 6px; justify-content: center; }
+.vkb-key {
+  background: rgba(255,255,255,0.06); border: 1px solid var(--panel-border);
+  border-radius: 4px; cursor: pointer;
+  font-family: var(--font-display); font-size: 13px; font-weight: 600;
+  color: var(--text-secondary); letter-spacing: 0.04em;
+  transition: background 0.08s, border-color 0.08s, color 0.08s, transform 0.08s, box-shadow 0.08s;
+  display: flex; align-items: center; justify-content: center;
+  height: 44px; min-width: 44px; flex: 1; padding: 0;
+}
+.vkb-key:hover { background: var(--sel-bg); border-color: var(--accent-dim); color: var(--text-primary); }
+.vkb-key.focused {
+  background: var(--sel-bg); border-color: var(--accent); color: var(--text-primary);
+  box-shadow: 0 0 calc(10px * var(--glow)) var(--accent-glow); transform: scale(1.08);
+}
+.vkb-key.pressed { background: var(--accent); color: var(--text-on-accent); border-color: var(--accent-bright); transform: scale(0.94); box-shadow: none; }
+.vkb-key.wide    { flex: 2; }
+.vkb-key.wider   { flex: 3; }
+.vkb-key.widest  { flex: 6; }
+.vkb-footer { margin-top: 12px; display: flex; justify-content: center; gap: 24px; }
+.vkb-hint { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
+.vkb-start-badge { padding: 2px 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; font-family: var(--font-mono); font-size: 9px; color: rgba(255,255,255,0.6); letter-spacing: 0.06em; }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="scanlines" id="scanlines"></div>
+<div class="vignette"></div>
+
+<!-- ── Settings Modal ─────────────────────────────────────────────────────── -->
+<div id="settings-overlay">
+  <div id="settings-panel">
+    <div class="settings-header">
+      <span class="settings-header-icon">⚙</span>
+      <span class="settings-header-title">Settings</span>
+      <span class="settings-close-hint" id="settings-close-hint">ESC to close</span>
+    </div>
+    <div class="settings-body">
+      <div class="settings-row">
+        <div class="settings-label">Dashboard Theme</div>
+        <select class="settings-select" id="theme-selector"></select>
+        <div class="settings-theme-preview" id="theme-swatches"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Virtual Keyboard ───────────────────────────────────────────────────── -->
+<div id="vkb-overlay">
+  <div id="vkb-search-display">
+    <span class="vkb-label">Search</span>
+    <span id="vkb-text"></span>
+    <span class="vkb-cursor"></span>
+  </div>
+  <div id="vkb-panel">
+    <div class="vkb-rows" id="vkb-rows"></div>
+    <div class="vkb-footer">
+      <div class="vkb-hint"><span class="btn-badge btn-a-hint">A</span> Type key</div>
+      <div class="vkb-hint"><span class="btn-badge btn-b-hint">B</span> Delete</div>
+      <div class="vkb-hint"><span class="vkb-start-badge">START</span> Confirm &amp; close</div>
+      <div class="vkb-hint"><span class="btn-badge btn-y-hint">Y</span> Cancel</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── App ────────────────────────────────────────────────────────────────── -->
+<div id="app">
+
+  <div id="header">
+    <svg class="xbox-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="48" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+      <path d="M50 8 C30 8 14 24 14 44 C14 68 32 88 50 92 C68 88 86 68 86 44 C86 24 70 8 50 8 Z" fill="var(--accent)" opacity="0.15"/>
+      <line x1="26" y1="26" x2="74" y2="74" stroke="var(--accent)" stroke-width="7" stroke-linecap="round"/>
+      <line x1="74" y1="26" x2="26" y2="74" stroke="var(--accent)" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="50" cy="50" r="6" fill="var(--accent)"/>
+    </svg>
+    <div class="header-title-group">
+      <div class="header-title">Game Library</div>
+      <div class="header-subtitle" id="roms-path-label">Scanning…</div>
+    </div>
+    <div class="header-actions">
+      <div id="game-count">— TITLES</div>
+      <div id="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="search-input" type="text" placeholder="Search games…" autocomplete="off" spellcheck="false">
+      </div>
+      <button id="settings-btn" title="Settings (F1 / Y button)" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"></button>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="grid-panel">
+      <div id="loading"><div class="spin"></div>LOADING LIBRARY…</div>
+      <div id="error-state">
+        <div class="state-icon">!</div>
+        <div class="state-title">Directory Not Found</div>
+        <div class="state-msg" id="error-msg"></div>
+        <div class="state-path" id="error-path"></div>
+      </div>
+      <div id="empty-state">
+        <div class="state-icon">X</div>
+        <div class="state-title">No Games Found</div>
+        <div class="state-msg">No ROM files were found. Add .iso or .xiso files to get started.</div>
+        <div class="state-path" id="empty-path"></div>
+      </div>
+      <div id="game-grid" style="display:none;"></div>
+    </div>
+
+    <div id="detail-panel">
+      <div id="detail-empty" class="detail-empty">
+        <div class="detail-empty-x">X</div>
+        <div class="detail-empty-text">SELECT A GAME</div>
+      </div>
+      <div id="detail-content" style="display:none; flex-direction:column; height:100%;">
+        <div class="detail-art-wrap" id="detail-art-wrap"></div>
+        <div class="detail-info" id="detail-info"></div>
+        <button class="detail-select-btn" id="detail-select-btn">
+          <span class="btn-a-badge">A</span> LAUNCH GAME
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer">
+    <!-- Keyboard/mouse mode -->
+    <div class="hint-group kb">
+      <div class="footer-hint"><span class="key-badge">↑↓←→</span> Navigate</div>
+      <div class="footer-hint"><span class="key-badge">Enter</span> Launch</div>
+      <div class="footer-hint"><span class="key-badge">Esc</span> Cancel</div>
+      <div class="footer-hint"><span class="key-badge">F1</span> Settings</div>
+    </div>
+    <!-- Gamepad mode -->
+    <div class="hint-group gp">
+      <div class="footer-hint"><span class="btn-badge btn-a-hint">A</span> Launch</div>
+      <div class="footer-hint"><span class="btn-badge btn-b-hint">B</span> Cancel</div>
+      <div class="footer-hint"><span class="btn-badge btn-x-hint">X</span> Search</div>
+      <div class="footer-hint"><span class="btn-badge btn-y-hint">Y</span> Settings</div>
+      <div class="footer-hint" style="gap:5px;"><span style="font-family:var(--font-mono);font-size:11px;">D-PAD</span> Navigate</div>
+    </div>
+    <div class="footer-spacer"></div>
+    <div id="ctrl-indicator">
+      <div class="ctrl-dot"></div>
+      <span id="ctrl-name">CONTROLLER</span>
+    </div>
+    <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);" id="footer-roms-path"></div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════
+let allGames    = [];
+let filtered    = [];
+let focusedIdx  = -1;
+let currentGame = null;
+let config      = {};
+let theme       = {};
+let inputMode   = 'keyboard'; // 'keyboard' | 'gamepad'
+
+function setInputMode(mode) {
+  if (mode === inputMode) return;
+  inputMode = mode;
+  document.body.classList.toggle('input-gamepad', mode === 'gamepad');
+  document.getElementById('ctrl-indicator').classList.toggle('visible', mode === 'gamepad');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BACKGROUND CANVAS
+// ═══════════════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('bg-canvas');
+const ctx    = canvas.getContext('2d');
+let rings = [], bgAngle = 0;
+
+function initCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+function buildRings() {
+  const m = Math.max(canvas.width, canvas.height);
+  rings = [
+    { r: m*0.55, speed: 0.0004, width: 1.5, color: theme.colors?.ringOuter  || 'rgba(82,176,67,0.08)' },
+    { r: m*0.40, speed: 0.0007, width: 1.0, color: theme.colors?.ringMiddle || 'rgba(82,176,67,0.12)' },
+    { r: m*0.25, speed: 0.0011, width: 0.8, color: theme.colors?.ringInner  || 'rgba(82,176,67,0.06)' },
+    { r: m*0.65, speed: 0.0002, width: 1.0, color: theme.colors?.ringOuter  || 'rgba(82,176,67,0.05)' },
+  ];
+}
+function drawBg() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const cx = canvas.width*0.72, cy = canvas.height*0.5;
+  const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(canvas.width, canvas.height)*0.5);
+  grd.addColorStop(0,   theme.colors?.accentGlow || 'rgba(82,176,67,0.06)');
+  grd.addColorStop(0.5, 'rgba(0,0,0,0)');
+  grd.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = grd; ctx.fillRect(0,0,canvas.width,canvas.height);
+  rings.forEach((ring, i) => {
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.rotate(bgAngle * ring.speed * 1000 + i * 0.8);
+    ctx.scale(1, 0.35 + i*0.08);
+    ctx.beginPath(); ctx.arc(0,0,ring.r,0,Math.PI*2);
+    ctx.strokeStyle = ring.color; ctx.lineWidth = ring.width; ctx.stroke();
+    ctx.restore();
+  });
+  bgAngle++;
+  requestAnimationFrame(drawBg);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THEME
+// ═══════════════════════════════════════════════════════════════════════════
+function applyTheme(t) {
+  theme = t;
+  const root = document.documentElement, c = t.colors || {};
+  const map = {
+    '--bg':c.background,'--bg2':c.backgroundSecondary,'--panel-bg':c.panelBg,
+    '--panel-border':c.panelBorder,'--panel-glow':c.panelBorderGlow,
+    '--accent':c.accent,'--accent-bright':c.accentBright,'--accent-dim':c.accentDim,
+    '--accent-glow':c.accentGlow,'--text-primary':c.textPrimary,'--text-secondary':c.textSecondary,
+    '--text-muted':c.textMuted,'--text-on-accent':c.textOnAccent,
+    '--sel-bg':c.selectionBg,'--sel-border':c.selectionBorder,
+    '--ring-outer':c.ringOuter,'--ring-middle':c.ringMiddle,'--ring-inner':c.ringInner,
+    '--btn-a':c.buttonA,'--btn-b':c.buttonB,'--btn-x':c.buttonX,'--btn-y':c.buttonY,
+    '--no-art':c.noArt,'--no-art-text':c.noArtText,
+    '--scrollbar':c.scrollbar,'--scrollbar-track':c.scrollbarTrack,
+    '--glow':t.effects?.glowIntensity||'1.0','--vignette':t.effects?.vignetteStrength||'0.6',
+  };
+  if (t.fonts) {
+    if (t.fonts.display) map['--font-display'] = t.fonts.display;
+    if (t.fonts.body)    map['--font-body']    = t.fonts.body;
+    if (t.fonts.mono)    map['--font-mono']    = t.fonts.mono;
+  }
+  for (const [k,v] of Object.entries(map)) { if (v !== undefined) root.style.setProperty(k, v); }
+  document.getElementById('scanlines').style.display = t.effects?.scanlines !== false ? 'block' : 'none';
+  buildRings();
+  // Update swatch preview
+  const sw = document.getElementById('theme-swatches');
+  if (c.accent) {
+    sw.innerHTML = [c.accent, c.buttonA, c.buttonB, c.buttonX, c.buttonY]
+      .filter(Boolean).map(col => `<div class="theme-swatch" style="background:${col}"></div>`).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SETTINGS MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+let settingsOpen = false;
+
+function openSettings() {
+  settingsOpen = true;
+  document.getElementById('settings-overlay').classList.add('open');
+  document.getElementById('settings-close-hint').textContent =
+    inputMode === 'gamepad' ? 'B to close' : 'ESC to close';
+}
+function closeSettings() {
+  settingsOpen = false;
+  document.getElementById('settings-overlay').classList.remove('open');
+}
+
+document.getElementById('settings-btn').addEventListener('click', openSettings);
+document.getElementById('settings-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('settings-overlay')) closeSettings();
+});
+document.getElementById('theme-selector').addEventListener('change', async e => {
+  const t = await window.xboxPicker.getTheme(e.target.value);
+  if (t) applyTheme(t);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIRTUAL KEYBOARD
+// ═══════════════════════════════════════════════════════════════════════════
+const VKB_ALPHA = [
+  ['Q','W','E','R','T','Y','U','I','O','P','⌫'],
+  ['A','S','D','F','G','H','J','K','L','\''],
+  ['Z','X','C','V','B','N','M','-','.'],
+  ['123','SPACE','DONE'],
+];
+const VKB_NUM = [
+  ['1','2','3','4','5','6','7','8','9','0','⌫'],
+  ['!','@','#','$','%','^','&','*','(',')'],
+  ['-','_','=','+','[',']',';',':',',','.'],
+  ['ABC','SPACE','DONE'],
+];
+
+let vkbOpen   = false;
+let vkbValue  = '';
+let vkbRow    = 0;
+let vkbCol    = 0;
+let vkbLayout = VKB_ALPHA;
+
+function buildVkb() {
+  const container = document.getElementById('vkb-rows');
+  container.innerHTML = '';
+  vkbLayout.forEach((row, ri) => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'vkb-row';
+    row.forEach((key, ci) => {
+      const btn = document.createElement('button');
+      const isSpace = key === 'SPACE';
+      const isWide  = key === '⌫' || key === 'DONE' || key === '123' || key === 'ABC';
+      btn.className = 'vkb-key' + (isSpace ? ' widest' : isWide ? ' wide' : '');
+      btn.textContent = isSpace ? '␣' : key;
+      btn.dataset.row = ri; btn.dataset.col = ci;
+      btn.addEventListener('mouseenter', () => { vkbRow=ri; vkbCol=ci; updateVkbFocus(); setInputMode('keyboard'); });
+      btn.addEventListener('click', () => vkbPressKey(key));
+      rowEl.appendChild(btn);
+    });
+    container.appendChild(rowEl);
+  });
+  updateVkbFocus();
+}
+
+function updateVkbFocus() {
+  document.querySelectorAll('.vkb-key').forEach(k => k.classList.remove('focused'));
+  const rows = document.querySelectorAll('#vkb-rows .vkb-row');
+  if (rows[vkbRow]) {
+    const keys = rows[vkbRow].querySelectorAll('.vkb-key');
+    if (keys[vkbCol]) keys[vkbCol].classList.add('focused');
+  }
+}
+
+function vkbFlash() {
+  const rows = document.querySelectorAll('#vkb-rows .vkb-row');
+  if (!rows[vkbRow]) return;
+  const key = rows[vkbRow].querySelectorAll('.vkb-key')[vkbCol];
+  if (!key) return;
+  key.classList.add('pressed');
+  setTimeout(() => key.classList.remove('pressed'), 110);
+}
+
+function vkbPressKey(key) {
+  vkbFlash();
+  if (key === '⌫') {
+    vkbValue = vkbValue.slice(0, -1);
+  } else if (key === 'SPACE' || key === '␣') {
+    vkbValue += ' ';
+  } else if (key === 'DONE') {
+    closeVkb(true); return;
+  } else if (key === '123') {
+    vkbLayout = VKB_NUM;  vkbRow=0; vkbCol=0; buildVkb(); return;
+  } else if (key === 'ABC') {
+    vkbLayout = VKB_ALPHA; vkbRow=0; vkbCol=0; buildVkb(); return;
+  } else {
+    vkbValue += key;
+  }
+  document.getElementById('vkb-text').textContent = vkbValue;
+  applyFilter(vkbValue);
+}
+
+function openVkb() {
+  vkbOpen   = true;
+  vkbValue  = document.getElementById('search-input').value;
+  vkbLayout = VKB_ALPHA;
+  vkbRow = 0; vkbCol = 0;
+  document.getElementById('vkb-text').textContent = vkbValue;
+  document.getElementById('vkb-overlay').classList.add('open');
+  buildVkb();
+}
+function closeVkb(confirm) {
+  vkbOpen = false;
+  document.getElementById('vkb-overlay').classList.remove('open');
+  if (confirm) {
+    document.getElementById('search-input').value = vkbValue;
+    applyFilter(vkbValue);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GAMEPAD
+// ═══════════════════════════════════════════════════════════════════════════
+const GP = { A:0,B:1,X:2,Y:3,LB:4,RB:5,LT:6,RT:7,SELECT:8,START:9,LS:10,RS:11,DUP:12,DDOWN:13,DLEFT:14,DRIGHT:15 };
+let gpPrev = {}, gpRepeat = {};
+const GP_DELAY = 380, GP_RATE = 140;
+
+function gpVal(pad, btn) {
+  const b = pad.buttons[btn];
+  return b ? (typeof b === 'object' ? b.pressed : b > 0.5) : false;
+}
+
+window.addEventListener('gamepadconnected', e => {
+  setInputMode('gamepad');
+  const name = (e.gamepad.id || 'CONTROLLER').replace(/\s*\(.*?\)\s*/g,'').substring(0,30).toUpperCase();
+  document.getElementById('ctrl-name').textContent = name;
+  requestAnimationFrame(gpPoll);
+});
+window.addEventListener('gamepaddisconnected', () => {
+  const pads = [...(navigator.getGamepads?.() || [])].filter(Boolean);
+  if (!pads.length) { setInputMode('keyboard'); gpPrev = {}; }
+});
+
+// Any mouse move or physical key → keyboard mode
+document.addEventListener('mousemove',  () => { if (!vkbOpen && !settingsOpen) setInputMode('keyboard'); }, {passive:true});
+document.addEventListener('keydown',    e  => { if (!vkbOpen) setInputMode('keyboard'); }, {passive:true});
+
+function gpPoll() {
+  const pads = [...(navigator.getGamepads?.() || [])].filter(Boolean);
+  if (!pads.length) { requestAnimationFrame(gpPoll); return; }
+  const pad = pads[0], now = performance.now();
+
+  // Any press → gamepad mode
+  if (pad.buttons.some(b => typeof b === 'object' ? b.pressed : b > 0.5)) setInputMode('gamepad');
+
+  const navBtns = [GP.DUP, GP.DDOWN, GP.DLEFT, GP.DRIGHT, GP.LB, GP.RB];
+  const allBtns = [GP.A,GP.B,GP.X,GP.Y,GP.START,GP.SELECT,...navBtns];
+
+  allBtns.forEach(btn => {
+    const held = gpVal(pad, btn);
+    const prev = gpPrev[btn] || false;
+    if (held && !prev) {
+      gpHandleBtn(btn);
+      gpRepeat[btn] = now + GP_DELAY;
+    } else if (held && prev && navBtns.includes(btn)) {
+      if (gpRepeat[btn] && now >= gpRepeat[btn]) { gpHandleBtn(btn); gpRepeat[btn] = now + GP_RATE; }
+    } else if (!held) { gpRepeat[btn] = null; }
+    gpPrev[btn] = held;
+  });
+
+  requestAnimationFrame(gpPoll);
+}
+
+function gpHandleBtn(btn) {
+  // ── Virtual keyboard ──────────────────────────────────────────────────
+  if (vkbOpen) {
+    const rowCount = vkbLayout.length;
+    const colCount = vkbLayout[vkbRow].length;
+    switch (btn) {
+      case GP.DRIGHT: vkbCol = (vkbCol+1) % colCount; updateVkbFocus(); break;
+      case GP.DLEFT:  vkbCol = (vkbCol-1+colCount) % colCount; updateVkbFocus(); break;
+      case GP.DDOWN: {
+        vkbRow = (vkbRow+1) % rowCount;
+        vkbCol = Math.min(vkbCol, vkbLayout[vkbRow].length-1);
+        updateVkbFocus(); break;
+      }
+      case GP.DUP: {
+        vkbRow = (vkbRow-1+rowCount) % rowCount;
+        vkbCol = Math.min(vkbCol, vkbLayout[vkbRow].length-1);
+        updateVkbFocus(); break;
+      }
+      case GP.A:     vkbPressKey(vkbLayout[vkbRow][vkbCol]); break;
+      case GP.B:     vkbPressKey('⌫'); break;
+      case GP.START: closeVkb(true);  break;
+      case GP.Y:     closeVkb(false); break;
+    }
+    return;
+  }
+
+  // ── Settings modal ────────────────────────────────────────────────────
+  if (settingsOpen) {
+    if (btn === GP.B) { closeSettings(); return; }
+    if (btn === GP.DLEFT || btn === GP.DRIGHT) {
+      const sel = document.getElementById('theme-selector');
+      const dir = btn === GP.DRIGHT ? 1 : -1;
+      sel.selectedIndex = (sel.selectedIndex + dir + sel.options.length) % sel.options.length;
+      sel.dispatchEvent(new Event('change'));
+    }
+    return;
+  }
+
+  // ── Main grid ─────────────────────────────────────────────────────────
+  const cols = config.ui?.gameColumns || 4;
+  const len  = filtered.length;
+  switch (btn) {
+    case GP.DRIGHT: if (len) focusCard((focusedIdx+1+len) % len); break;
+    case GP.DLEFT:  if (len) focusCard((focusedIdx-1+len) % len); break;
+    case GP.DDOWN:  if (len) focusCard(Math.min(focusedIdx+cols, len-1)); break;
+    case GP.DUP:    if (len) focusCard(Math.max(focusedIdx-cols, 0)); break;
+    case GP.RB:     if (len) focusCard(Math.min(focusedIdx+cols*2, len-1)); break;
+    case GP.LB:     if (len) focusCard(Math.max(focusedIdx-cols*2, 0)); break;
+    case GP.A:      if (currentGame) launchGame(currentGame); break;
+    case GP.B:      window.xboxPicker.cancel(); break;
+    case GP.X:      openVkb(); break;
+    case GP.Y:
+    case GP.START:  openSettings(); break;
+  }
+}
+
+// Check for already-connected controller on page load
+window.addEventListener('load', () => {
+  const pads = [...(navigator.getGamepads?.() || [])].filter(Boolean);
+  if (pads.length) {
+    setInputMode('gamepad');
+    document.getElementById('ctrl-name').textContent = (pads[0].id||'CONTROLLER').replace(/\s*\(.*?\)\s*/g,'').substring(0,30).toUpperCase();
+    requestAnimationFrame(gpPoll);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// KEYBOARD INPUT
+// ═══════════════════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (vkbOpen)      { closeVkb(false); return; }
+    if (settingsOpen) { closeSettings(); return; }
+    window.xboxPicker.cancel(); return;
+  }
+  if (e.key === 'F1') { e.preventDefault(); openSettings(); return; }
+  if (document.activeElement === document.getElementById('search-input')) return;
+  if (settingsOpen || vkbOpen) return;
+
+  const cols = config.ui?.gameColumns || 4;
+  const len  = filtered.length;
+  if (!len) return;
+  switch (e.key) {
+    case 'ArrowRight': e.preventDefault(); focusCard((focusedIdx+1+len)%len); break;
+    case 'ArrowLeft':  e.preventDefault(); focusCard((focusedIdx-1+len)%len); break;
+    case 'ArrowDown':  e.preventDefault(); focusCard(Math.min(focusedIdx+cols,len-1)); break;
+    case 'ArrowUp':    e.preventDefault(); focusCard(Math.max(focusedIdx-cols,0)); break;
+    case 'Enter':      if (currentGame) { e.preventDefault(); launchGame(currentGame); } break;
+  }
+});
+
+document.getElementById('search-input').addEventListener('input', e => applyFilter(e.target.value));
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.target.value = ''; applyFilter(''); e.stopPropagation(); }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GAME GRID
+// ═══════════════════════════════════════════════════════════════════════════
+function focusCard(idx) {
+  if (idx < 0 || idx >= filtered.length) return;
+  document.querySelectorAll('.game-card.focused').forEach(c => c.classList.remove('focused'));
+  focusedIdx = idx; currentGame = filtered[idx];
+  const card = document.querySelector(`.game-card[data-idx="${idx}"]`);
+  if (card) { card.classList.add('focused'); card.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  updateDetail(currentGame);
+}
+
+function createCardElement(game, idx) {
+  const card = document.createElement('div');
+  card.className = 'game-card'; card.dataset.idx = idx;
+  card.innerHTML = `
+    <div class="card-art">
+      <div class="no-art-placeholder">
+        <div class="no-art-x">X</div>
+        <div class="no-art-label">${esc(game.title)}</div>
+      </div>
+    </div>
+    <div class="card-info">
+      <div class="card-title">${esc(game.title)}</div>
+      <div class="card-meta">
+        ${game.year  ? `<span class="card-year">${game.year}</span>` : ''}
+        ${game.genre ? `<span>${esc(game.genre)}</span>` : ''}
+      </div>
+    </div>
+    <div class="card-selected-ring"></div>`;
+  if (game.coverArt) {
+    window.xboxPicker.loadCoverArt(game.coverArt).then(url => {
+      if (!url) return;
+      card.querySelector('.card-art').innerHTML = `<img src="${url}" alt="${esc(game.title)}" draggable="false">`;
+    });
+  }
+  card.addEventListener('mouseenter', () => { setInputMode('keyboard'); focusCard(idx); });
+  card.addEventListener('click', () => { if (currentGame) launchGame(currentGame); });
+  return card;
+}
+
+function renderGrid(games) {
+  const grid = document.getElementById('game-grid');
+  grid.innerHTML = '';
+  const cols = config.ui?.gameColumns || 4;
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  games.forEach((game, idx) => grid.appendChild(createCardElement(game, idx)));
+}
+
+function applyFilter(query) {
+  const q = query.toLowerCase().trim();
+  filtered = q ? allGames.filter(g =>
+    g.title.toLowerCase().includes(q) ||
+    (g.genre||'').toLowerCase().includes(q) ||
+    (g.publisher||'').toLowerCase().includes(q)
+  ) : [...allGames];
+  focusedIdx = -1; currentGame = null;
+  updateDetail(null); renderGrid(filtered);
+  document.getElementById('game-count').textContent = `${filtered.length} TITLE${filtered.length!==1?'S':''}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DETAIL PANEL
+// ═══════════════════════════════════════════════════════════════════════════
+async function updateDetail(game) {
+  const emptyEl = document.getElementById('detail-empty');
+  const contEl  = document.getElementById('detail-content');
+  if (!game) { emptyEl.style.display='flex'; contEl.style.display='none'; return; }
+  emptyEl.style.display='none'; contEl.style.display='flex';
+
+  const artWrap = document.getElementById('detail-art-wrap');
+  if (game.coverArt) {
+    const url = await window.xboxPicker.loadCoverArt(game.coverArt);
+    artWrap.innerHTML = url
+      ? `<img src="${url}" alt="${esc(game.title)}" draggable="false">`
+      : `<div class="detail-no-art"><div class="detail-no-art-x">X</div></div>`;
+  } else {
+    artWrap.innerHTML = `<div class="detail-no-art"><div class="detail-no-art-x">X</div></div>`;
+  }
+
+  const meta = [
+    ['Publisher',game.publisher],['Developer',game.developer],['Genre',game.genre],
+    ['Year',game.year],['Players',game.players],['Rating',game.rating],['Region',game.region],
+  ].filter(([,v])=>v);
+
+  document.getElementById('detail-info').innerHTML = `
+    <div class="detail-title">${esc(game.title)}</div>
+    <div class="detail-divider"></div>
+    ${meta.map(([l,v])=>`<div class="detail-meta-row"><span class="detail-meta-label">${l}</span><span class="detail-meta-value">${esc(String(v))}</span></div>`).join('')}
+    ${game.description ? `<div class="detail-description">${esc(game.description)}</div>` : ''}
+    <div class="detail-filename">${esc(game.filePath)}</div>`;
+
+  document.getElementById('detail-select-btn').onclick = () => launchGame(game);
+}
+
+function launchGame(game) { window.xboxPicker.selectGame(game.filePath); }
+function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function showGrid() {
+  document.getElementById('loading').style.display='none';
+  document.getElementById('error-state').classList.remove('visible');
+  document.getElementById('empty-state').classList.remove('visible');
+  document.getElementById('game-grid').style.display='grid';
+}
+function showError(msg,path) {
+  document.getElementById('loading').style.display='none';
+  document.getElementById('game-grid').style.display='none';
+  document.getElementById('error-state').classList.add('visible');
+  document.getElementById('error-msg').textContent=msg;
+  document.getElementById('error-path').textContent=path||'';
+}
+function showEmpty(path) {
+  document.getElementById('loading').style.display='none';
+  document.getElementById('game-grid').style.display='none';
+  document.getElementById('empty-state').classList.add('visible');
+  document.getElementById('empty-path').textContent=path||'';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+async function init() {
+  initCanvas();
+  window.addEventListener('resize', () => { initCanvas(); buildRings(); });
+
+  config = await window.xboxPicker.getConfig();
+
+  const t = await window.xboxPicker.getTheme(config.defaultTheme || 'xbox-original');
+  if (t) applyTheme(t); else buildRings();
+  drawBg();
+
+  const themes = await window.xboxPicker.getAvailableThemes();
+  const sel = document.getElementById('theme-selector');
+  sel.innerHTML = themes.map(th =>
+    `<option value="${esc(th.id)}" ${th.id===(config.defaultTheme||'xbox-original')?'selected':''}>${esc(th.name)}</option>`
+  ).join('');
+
+  const romsDir = config.romsDirectory || '/home/xemu/games';
+  document.getElementById('roms-path-label').textContent = romsDir;
+  document.getElementById('footer-roms-path').textContent = romsDir;
+
+  const result = await window.xboxPicker.scanGames();
+  if (result.error && !result.games?.length) { showError(result.error, romsDir); return; }
+  allGames = result.games || [];
+  filtered = [...allGames];
+  document.getElementById('game-count').textContent = `${allGames.length} TITLE${allGames.length!==1?'S':''}`;
+  if (!allGames.length) { showEmpty(romsDir); return; }
+  showGrid(); renderGrid(filtered);
+  if (filtered.length) focusCard(0);
+}
+
+init();
+</script>
+</body>
+</html>

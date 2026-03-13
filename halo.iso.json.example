@@ -1,0 +1,13 @@
+{
+  "_note": "Fill in any fields you want. All are optional.",
+  "title":       "Halo: Combat Evolved",
+  "description": "Embark on an epic saga where humanity stands at the brink of extinction. As Master Chief, battle the terrifying alien Covenant and unravel the secrets of a mysterious ring-world.",
+  "genre":       "First-Person Shooter",
+  "year":        2001,
+  "publisher":   "Microsoft Game Studios",
+  "developer":   "Bungie Studios",
+  "players":     "1-4",
+  "rating":      "M",
+  "region":      "NTSC",
+  "coverArt":    "halo.png"
+}

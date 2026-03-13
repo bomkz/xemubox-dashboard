@@ -1,1 +1,37 @@
-{}
+{
+  "name": "xbox-rom-picker",
+  "version": "1.0.0",
+  "description": "Xbox-styled ROM picker for xemu integration",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:linux": "electron-builder --linux",
+    "build:deb": "electron-builder --linux deb",
+    "pack": "electron-builder --dir"
+  },
+  "keywords": ["xbox", "emulation", "xemu", "rom-picker"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^26.8.1"
+  },
+  "overrides": {
+    "tar": ">=6.2.1"
+  },
+  "build": {
+    "appId": "com.xemu.xbox-picker",
+    "productName": "Xbox ROM Picker",
+    "linux": {
+      "target": ["deb", "AppImage"],
+      "category": "Game"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.html",
+      "config.json",
+      "themes/**/*"
+    ]
+  }
+}

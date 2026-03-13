@@ -1,0 +1,54 @@
+{
+  "name": "Xbox Original",
+  "author": "Built-in",
+  "description": "Faithful recreation of the original Xbox 2001 dashboard aesthetic",
+
+  "colors": {
+    "background":        "#000000",
+    "backgroundSecondary": "#0a0a0a",
+    "panelBg":           "#0d1a0d",
+    "panelBorder":       "#1a3a1a",
+    "panelBorderGlow":   "#52B043",
+
+    "accent":            "#52B043",
+    "accentBright":      "#76D65A",
+    "accentDim":         "#2d6624",
+    "accentGlow":        "rgba(82, 176, 67, 0.4)",
+
+    "textPrimary":       "#FFFFFF",
+    "textSecondary":     "#8DC63F",
+    "textMuted":         "#4a7a40",
+    "textOnAccent":      "#000000",
+
+    "selectionBg":       "rgba(82, 176, 67, 0.2)",
+    "selectionBorder":   "#52B043",
+
+    "scrollbar":         "#52B043",
+    "scrollbarTrack":    "#0d1a0d",
+
+    "ringOuter":         "rgba(82, 176, 67, 0.08)",
+    "ringMiddle":        "rgba(82, 176, 67, 0.12)",
+    "ringInner":         "rgba(82, 176, 67, 0.06)",
+
+    "buttonA":           "#52B043",
+    "buttonB":           "#CC2222",
+    "buttonX":           "#1155AA",
+    "buttonY":           "#BB8800",
+
+    "noArt":             "#0d1a0d",
+    "noArtText":         "#2d6624"
+  },
+
+  "fonts": {
+    "display": "'Orbitron', 'Rajdhani', sans-serif",
+    "body":    "'Exo 2', 'Rajdhani', sans-serif",
+    "mono":    "'Share Tech Mono', monospace"
+  },
+
+  "effects": {
+    "scanlines": true,
+    "glowIntensity": "1.0",
+    "vignetteStrength": "0.6",
+    "backgroundRings": true
+  }
+}

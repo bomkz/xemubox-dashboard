@@ -1,0 +1,25 @@
+{
+  "_comment": "Xbox ROM Picker — Developer Configuration",
+
+  "romsDirectory": "/home/xemu/games",
+
+  "infoFileSuffix": ".json",
+
+  "supportedExtensions": [".iso", ".xiso", ".img", ".xbe"],
+
+  "defaultTheme": "xbox-original",
+
+  "window": {
+    "width": 1280,
+    "height": 720,
+    "fullscreen": false,
+    "alwaysOnTop": true,
+    "frame": false
+  },
+
+  "ui": {
+    "gameColumns": 4,
+    "showDescriptions": true,
+    "animateBackground": true
+  }
+}

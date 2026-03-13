@@ -1,0 +1,54 @@
+{
+  "name": "Neon Underground",
+  "author": "Custom Theme Example",
+  "description": "Cyberpunk-inspired purple/magenta theme for custom Xbox dashboards",
+
+  "colors": {
+    "background":          "#07000f",
+    "backgroundSecondary": "#0e0018",
+    "panelBg":             "#120020",
+    "panelBorder":         "#3d0060",
+    "panelBorderGlow":     "#bf00ff",
+
+    "accent":              "#bf00ff",
+    "accentBright":        "#df44ff",
+    "accentDim":           "#5c007a",
+    "accentGlow":          "rgba(191, 0, 255, 0.4)",
+
+    "textPrimary":         "#FFFFFF",
+    "textSecondary":       "#cc66ff",
+    "textMuted":           "#6a2080",
+    "textOnAccent":        "#ffffff",
+
+    "selectionBg":         "rgba(191, 0, 255, 0.2)",
+    "selectionBorder":     "#bf00ff",
+
+    "scrollbar":           "#bf00ff",
+    "scrollbarTrack":      "#120020",
+
+    "ringOuter":           "rgba(191, 0, 255, 0.06)",
+    "ringMiddle":          "rgba(191, 0, 255, 0.10)",
+    "ringInner":           "rgba(191, 0, 255, 0.05)",
+
+    "buttonA":             "#00cc66",
+    "buttonB":             "#ff3344",
+    "buttonX":             "#0088ff",
+    "buttonY":             "#ffcc00",
+
+    "noArt":               "#120020",
+    "noArtText":           "#5c007a"
+  },
+
+  "fonts": {
+    "display": "'Orbitron', 'Rajdhani', sans-serif",
+    "body":    "'Exo 2', 'Rajdhani', sans-serif",
+    "mono":    "'Share Tech Mono', monospace"
+  },
+
+  "effects": {
+    "scanlines": true,
+    "glowIntensity": "1.2",
+    "vignetteStrength": "0.7",
+    "backgroundRings": true
+  }
+}

@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""
+xbox-picker-portal — xdg-desktop-portal FileChooser backend
+
+Registers on the D-Bus session bus as an xdg-desktop-portal backend.
+When any app (e.g. xemu) requests a file chooser dialog, this service
+intercepts it and launches the Xbox ROM picker instead of GNOME's browser.
+
+Requirements:
+  python3-dbus  (apt install python3-dbus)
+  python3-gi    (apt install python3-gi)
+"""
+
+import os
+import sys
+import threading
+import subprocess
+import dbus
+import dbus.service
+import dbus.mainloop.glib
+from gi.repository import GLib
+
+# ── Configuration ──────────────────────────────────────────────────────────
+PORTAL_BUS_NAME   = 'org.freedesktop.impl.portal.desktop.xbox-picker'
+PORTAL_IFACE      = 'org.freedesktop.impl.portal.FileChooser'
+PORTAL_OBJECT     = '/org/freedesktop/portal/desktop'
+
+# Resolve picker directory relative to this script
+SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
+PICKER_DIR  = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
+
+# Prefer built AppImage/binary if present, fall back to npx electron
+def find_picker_cmd():
+    # Check for AppImage
+    dist = os.path.join(PICKER_DIR, 'dist')
+    if os.path.isdir(dist):
+        for f in os.listdir(dist):
+            if f.endswith('.AppImage'):
+                path = os.path.join(dist, f)
+                if os.access(path, os.X_OK):
+                    return [path]
+    # Check for unpacked binary
+    unpacked = os.path.join(PICKER_DIR, 'dist', 'linux-unpacked', 'xbox-rom-picker')
+    if os.path.isfile(unpacked) and os.access(unpacked, os.X_OK):
+        return [unpacked]
+    # Fall back to npx electron (development)
+    return ['npx', 'electron', '.']
+
+# ── D-Bus Request object ───────────────────────────────────────────────────
+class PortalRequest(dbus.service.Object):
+    """Represents a single in-flight portal request handle."""
+    def __init__(self, bus, handle):
+        super().__init__(bus, handle)
+        self.closed = False
+
+    @dbus.service.method('org.freedesktop.impl.portal.Request')
+    def Close(self):
+        self.closed = True
+        self.remove_from_connection()
+
+# ── FileChooser backend ────────────────────────────────────────────────────
+class FileChooserPortal(dbus.service.Object):
+    def __init__(self, bus):
+        super().__init__(bus, PORTAL_OBJECT)
+        self._bus = bus
+
+    # ------------------------------------------------------------------
+    # OpenFile  (called by xemu when the user clicks Load Disc)
+    # ------------------------------------------------------------------
+    @dbus.service.method(
+        PORTAL_IFACE,
+        in_signature='oossa{sv}',
+        out_signature='ua{sv}',
+        async_callbacks=('reply_handler', 'error_handler')
+    )
+    def OpenFile(self, handle, app_id, parent_window, title, options,
+                 reply_handler=None, error_handler=None):
+        print(f'[xbox-portal] OpenFile from app="{app_id}" title="{title}"', flush=True)
+
+        # Register a Request object for this handle so apps can cancel
+        try:
+            req = PortalRequest(self._bus, str(handle))
+        except Exception as e:
+            print(f'[xbox-portal] Note: could not register handle {handle}: {e}', flush=True)
+            req = None
+
+        def run():
+            try:
+                cmd = find_picker_cmd()
+                print(f'[xbox-portal] Launching picker: {" ".join(cmd)}', flush=True)
+                result = subprocess.run(
+                    cmd,
+                    cwd=PICKER_DIR,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True
+                )
+                selected = result.stdout.strip()
+
+                if req and req.closed:
+                    # Request was cancelled while picker was open
+                    GLib.idle_add(reply_handler, 1, {})
+                    return
+
+                print(f'[xbox-portal] Picker exited with code: {result.returncode}', flush=True)
+                print(f'[xbox-portal] Raw stdout: {repr(result.stdout)}', flush=True)
+
+                if result.returncode == 0 and selected:
+                    print(f'[xbox-portal] Selected path: {selected}', flush=True)
+                    uri = 'file://' + selected
+                    print(f'[xbox-portal] Returning URI: {uri}', flush=True)
+                    results = dbus.Dictionary(
+                        {'uris': dbus.Array([dbus.String(uri)], signature='s')},
+                        signature='sv',
+                        variant_level=0
+                    )
+                    GLib.idle_add(reply_handler, dbus.UInt32(0), results)
+                else:
+                    print('[xbox-portal] Picker cancelled or returned no path', flush=True)
+                    GLib.idle_add(reply_handler, dbus.UInt32(1), dbus.Dictionary(signature='sv'))
+
+            except Exception as e:
+                print(f'[xbox-portal] Error: {e}', flush=True)
+                GLib.idle_add(reply_handler, dbus.UInt32(2), dbus.Dictionary(signature='sv'))
+
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+
+    # ------------------------------------------------------------------
+    # SaveFile  (pass-through — not needed for xemu, return cancelled)
+    # ------------------------------------------------------------------
+    @dbus.service.method(
+        PORTAL_IFACE,
+        in_signature='oossa{sv}',
+        out_signature='ua{sv}',
+        async_callbacks=('reply_handler', 'error_handler')
+    )
+    def SaveFile(self, handle, app_id, parent_window, title, options,
+                 reply_handler=None, error_handler=None):
+        GLib.idle_add(reply_handler, 1, {})
+
+    # ------------------------------------------------------------------
+    # SaveFiles (plural — portal spec completeness)
+    # ------------------------------------------------------------------
+    @dbus.service.method(
+        PORTAL_IFACE,
+        in_signature='oossa{sv}',
+        out_signature='ua{sv}',
+        async_callbacks=('reply_handler', 'error_handler')
+    )
+    def SaveFiles(self, handle, app_id, parent_window, title, options,
+                  reply_handler=None, error_handler=None):
+        GLib.idle_add(reply_handler, 1, {})
+
+
+# ── Entry point ────────────────────────────────────────────────────────────
+def main():
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+    try:
+        bus = dbus.SessionBus()
+    except dbus.exceptions.DBusException as e:
+        print(f'[xbox-portal] Could not connect to session bus: {e}', file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        name = dbus.service.BusName(PORTAL_BUS_NAME, bus,
+                                    allow_replacement=True,
+                                    replace_existing=True)
+    except dbus.exceptions.DBusException as e:
+        print(f'[xbox-portal] Could not claim bus name "{PORTAL_BUS_NAME}": {e}', file=sys.stderr)
+        sys.exit(1)
+
+    portal = FileChooserPortal(bus)
+    loop = GLib.MainLoop()
+
+    print(f'[xbox-portal] Running. Picker dir: {PICKER_DIR}', flush=True)
+    print(f'[xbox-portal] Picker command: {" ".join(find_picker_cmd())}', flush=True)
+    print(f'[xbox-portal] Listening on {PORTAL_BUS_NAME}', flush=True)
+
+    try:
+        loop.run()
+    except KeyboardInterrupt:
+        print('\n[xbox-portal] Stopped.', flush=True)
+
+
+if __name__ == '__main__':
+    main()
