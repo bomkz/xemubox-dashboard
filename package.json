@@ -23,7 +23,7 @@
   "build": {
     "appId": "com.bomkz.xemubox-dashboard",
     "productName": "XemuBOX Dashboard",
-    "artifactName":"xdash",
+    "artifactName":"xemubox-dashboard",
     "linux": {
       "target": ["deb", "AppImage"],
       "category": "Game"
