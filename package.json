@@ -1,7 +1,7 @@
 {
-  "name": "xbox-rom-picker",
-  "version": "1.0.0",
-  "description": "Xbox-styled ROM picker for xemu integration",
+  "name": "xemubox-dashboard",
+  "version": "0.0.1",
+  "description": "Xbox-styled game picker for XemuBOX integration",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -9,7 +9,7 @@
     "build:deb": "electron-builder --linux deb",
     "pack": "electron-builder --dir"
   },
-  "keywords": ["xbox", "emulation", "xemu", "rom-picker"],
+  "keywords": ["xbox", "emulation", "xemu", "dashboard"],
   "author": "",
   "license": "MIT",
   "devDependencies": {
@@ -20,8 +20,9 @@
     "tar": ">=6.2.1"
   },
   "build": {
-    "appId": "com.xemu.xbox-picker",
-    "productName": "Xbox ROM Picker",
+    "appId": "com.xemu.xemubox-dashboard",
+    "productName": "XemuBOX Dashboard",
+    "artifactName":"xdash",
     "linux": {
       "target": ["deb", "AppImage"],
       "category": "Game"
